@@ -29,24 +29,59 @@ def read_data(filepath, filename):
         return pd.read_excel(filepath)
 
 
+def calculate_bw_adjust(df, x_col=None, y_col=None):
+    if x_col and y_col and x_col in df.columns and y_col in df.columns:
+        group_sizes = df.groupby(x_col)[y_col].count()
+        min_n = group_sizes.min() if len(group_sizes) > 0 else len(df)
+    elif y_col and y_col in df.columns:
+        min_n = df[y_col].count()
+    elif x_col and x_col in df.columns:
+        min_n = df[x_col].count()
+    else:
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        if len(numeric_cols) > 0:
+            min_n = min(df[col].count() for col in numeric_cols)
+        else:
+            min_n = len(df)
+
+    min_n = int(min_n)
+
+    if min_n >= 100:
+        return 1.0
+    elif min_n >= 50:
+        return 1.1
+    elif min_n >= 30:
+        return 1.2
+    elif min_n >= 20:
+        return 1.5
+    elif min_n >= 10:
+        return 2.0
+    elif min_n >= 5:
+        return 2.5
+    else:
+        return 3.0
+
+
 def generate_violin_plot(df, x_col=None, y_col=None, title='小提琴图', figsize=(10, 6)):
     fig, ax = plt.subplots(figsize=figsize)
     sns.set_style("whitegrid")
 
+    bw_adjust = calculate_bw_adjust(df, x_col, y_col)
+
     if x_col and y_col:
-        sns.violinplot(data=df, x=x_col, y=y_col, ax=ax, inner='box')
+        sns.violinplot(data=df, x=x_col, y=y_col, ax=ax, inner='box', bw_adjust=bw_adjust)
         ax.set_xlabel(x_col)
         ax.set_ylabel(y_col)
     elif y_col:
-        sns.violinplot(data=df, y=y_col, ax=ax, inner='box')
+        sns.violinplot(data=df, y=y_col, ax=ax, inner='box', bw_adjust=bw_adjust)
         ax.set_ylabel(y_col)
     elif x_col:
-        sns.violinplot(data=df, x=x_col, ax=ax, inner='box')
+        sns.violinplot(data=df, x=x_col, ax=ax, inner='box', bw_adjust=bw_adjust)
         ax.set_xlabel(x_col)
     else:
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         if len(numeric_cols) > 0:
-            sns.violinplot(data=df[numeric_cols], ax=ax, inner='box')
+            sns.violinplot(data=df[numeric_cols], ax=ax, inner='box', bw_adjust=bw_adjust)
         else:
             raise ValueError('数据中没有数值列，请选择包含数值的数据列。')
 
@@ -117,6 +152,7 @@ def violin_plot():
 
     try:
         df = read_data(filepath, filename)
+        bw_adjust = calculate_bw_adjust(df, x_col, y_col)
         img_base64 = generate_violin_plot(df, x_col=x_col, y_col=y_col, title=title)
 
         stats = {}
@@ -146,7 +182,8 @@ def violin_plot():
         return jsonify({
             'success': True,
             'image': img_base64,
-            'statistics': stats
+            'statistics': stats,
+            'bw_adjust': bw_adjust
         })
     except Exception as e:
         return jsonify({'error': f'生成图表失败: {str(e)}'}), 400

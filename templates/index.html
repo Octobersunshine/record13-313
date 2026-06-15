@@ -248,6 +248,25 @@
             color: #333;
         }
 
+        .bw-info {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #e65100;
+            display: none;
+        }
+
+        .bw-info.show {
+            display: block;
+        }
+
+        .bw-info strong {
+            color: #bf360c;
+        }
+
         .chart-container {
             text-align: center;
             padding: 20px;
@@ -425,6 +444,7 @@
 
             <div class="result-section" id="resultSection">
                 <h3>生成结果</h3>
+                <div class="bw-info" id="bwInfo"></div>
                 <div class="chart-container">
                     <img id="chartImage" alt="小提琴图">
                 </div>
@@ -448,6 +468,7 @@
         const resultSection = document.getElementById('resultSection');
         const chartImage = document.getElementById('chartImage');
         const statsGrid = document.getElementById('statsGrid');
+        const bwInfo = document.getElementById('bwInfo');
         const generateBtn = document.getElementById('generateBtn');
 
         function showError(msg) {
@@ -585,6 +606,22 @@
                 generateBtn.disabled = false;
                 if (data.success) {
                     chartImage.src = 'data:image/png;base64,' + data.image;
+
+                    bwInfo.classList.remove('show');
+                    if (data.bw_adjust && data.bw_adjust !== 1.0) {
+                        let msg = '';
+                        if (data.bw_adjust >= 2.5) {
+                            msg = '数据量较小，已自动大幅增加核密度估计带宽以获得更平滑的分布曲线';
+                        } else if (data.bw_adjust >= 1.5) {
+                            msg = '数据量较小，已自动增加核密度估计带宽以获得更平滑的分布曲线';
+                        } else if (data.bw_adjust > 1.0) {
+                            msg = '数据量适中偏小，已轻微增加核密度估计带宽以优化曲线平滑度';
+                        }
+                        if (msg) {
+                            bwInfo.innerHTML = `<strong>🔧 自动带宽调整：</strong>${msg}（带宽因子: ${data.bw_adjust.toFixed(1)}x）`;
+                            bwInfo.classList.add('show');
+                        }
+                    }
 
                     statsGrid.innerHTML = '';
                     if (data.statistics) {
