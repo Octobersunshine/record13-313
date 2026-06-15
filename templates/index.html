@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小提琴图可视化服务</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 40px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px 40px;
+        }
+
+        .upload-section {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .upload-section:hover,
+        .upload-section.dragover {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+
+        .upload-section.dragover {
+            transform: scale(1.01);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .upload-section h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .upload-section p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-info {
+            display: none;
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .file-info strong {
+            color: #2e7d32;
+        }
+
+        .controls {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .controls.show {
+            display: block;
+        }
+
+        .controls h3 {
+            margin-bottom: 16px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            background: white;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .preview-section {
+            display: none;
+            margin-bottom: 24px;
+        }
+
+        .preview-section.show {
+            display: block;
+        }
+
+        .preview-section h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .table-container {
+            max-height: 250px;
+            overflow: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-section h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .chart-container {
+            text-align: center;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .chart-container img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .stat-card h4 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .stat-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .stat-values div {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stat-values span:first-child {
+            color: #888;
+        }
+
+        .stat-values span:last-child {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            display: none;
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            border-left: 4px solid #c62828;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .group-stats {
+            margin-top: 12px;
+        }
+
+        .group-stats summary {
+            cursor: pointer;
+            padding: 8px 0;
+            font-weight: 500;
+            color: #667eea;
+            font-size: 13px;
+        }
+
+        .group-stats[open] summary {
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+            .header {
+                padding: 20px;
+            }
+            .form-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎻 小提琴图可视化服务</h1>
+            <p>上传数据文件，生成小提琴图（箱线图 + 核密度估计），直观展示数据分布形态</p>
+        </div>
+
+        <div class="content">
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-icon">📊</div>
+                <h3>上传数据文件</h3>
+                <p>支持 CSV、Excel (.xlsx, .xls) 格式，最大 16MB</p>
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">选择文件</button>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+            </div>
+
+            <div class="file-info" id="fileInfo"></div>
+            <div class="error-message" id="errorMessage"></div>
+
+            <div class="controls" id="controls">
+                <h3>图表配置</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="xCol">X 轴（分组列，可选）</label>
+                        <select id="xCol">
+                            <option value="">（不分组，单值分布）</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="yCol">Y 轴（数值列）</label>
+                        <select id="yCol"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="title">图表标题</label>
+                        <input type="text" id="title" value="小提琴图">
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="generateBtn" onclick="generateViolin()">生成小提琴图</button>
+            </div>
+
+            <div class="preview-section" id="previewSection">
+                <h3>数据预览（前 10 行）</h3>
+                <div class="table-container">
+                    <table id="previewTable"></table>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在生成图表...</p>
+            </div>
+
+            <div class="result-section" id="resultSection">
+                <h3>生成结果</h3>
+                <div class="chart-container">
+                    <img id="chartImage" alt="小提琴图">
+                </div>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilename = null;
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const errorMessage = document.getElementById('errorMessage');
+        const controls = document.getElementById('controls');
+        const previewSection = document.getElementById('previewSection');
+        const previewTable = document.getElementById('previewTable');
+        const xColSelect = document.getElementById('xCol');
+        const yColSelect = document.getElementById('yCol');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const chartImage = document.getElementById('chartImage');
+        const statsGrid = document.getElementById('statsGrid');
+        const generateBtn = document.getElementById('generateBtn');
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.classList.add('show');
+            setTimeout(() => errorMessage.classList.remove('show'), 5000);
+        }
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const validExtensions = ['.csv', '.xlsx', '.xls'];
+            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            if (!validExtensions.includes(ext)) {
+                showError('不支持的文件格式，请上传 CSV 或 Excel 文件');
+                return;
+            }
+
+            if (file.size > 16 * 1024 * 1024) {
+                showError('文件大小超过 16MB 限制');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            loading.classList.add('show');
+            controls.classList.remove('show');
+            previewSection.classList.remove('show');
+            resultSection.classList.remove('show');
+
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                if (data.success) {
+                    currentFilename = data.filename;
+                    fileInfo.innerHTML = `<strong>✓ 文件已上传：</strong>${data.filename}（共 ${data.total_rows} 行）`;
+                    fileInfo.classList.add('show');
+
+                    xColSelect.innerHTML = '<option value="">（不分组，单值分布）</option>';
+                    yColSelect.innerHTML = '';
+
+                    data.columns.forEach(col => {
+                        xColSelect.innerHTML += `<option value="${col}">${col}</option>`;
+                    });
+
+                    data.numeric_columns.forEach(col => {
+                        yColSelect.innerHTML += `<option value="${col}">${col}</option>`;
+                    });
+
+                    if (data.numeric_columns.length > 0) {
+                        yColSelect.value = data.numeric_columns[0];
+                    }
+
+                    controls.classList.add('show');
+
+                    let thead = '<thead><tr>';
+                    data.columns.forEach(col => thead += `<th>${col}</th>`);
+                    thead += '</tr></thead>';
+
+                    let tbody = '<tbody>';
+                    data.preview.forEach(row => {
+                        tbody += '<tr>';
+                        data.columns.forEach(col => tbody += `<td>${row[col]}</td>`);
+                        tbody += '</tr>';
+                    });
+                    tbody += '</tbody>';
+
+                    previewTable.innerHTML = thead + tbody;
+                    previewSection.classList.add('show');
+                } else {
+                    showError(data.error || '上传失败');
+                }
+            })
+            .catch(err => {
+                loading.classList.remove('show');
+                showError('上传失败：' + err.message);
+            });
+        }
+
+        function generateViolin() {
+            if (!currentFilename) return;
+
+            const xCol = xColSelect.value;
+            const yCol = yColSelect.value;
+            const title = document.getElementById('title').value;
+
+            if (!yCol) {
+                showError('请选择 Y 轴数值列');
+                return;
+            }
+
+            loading.classList.add('show');
+            resultSection.classList.remove('show');
+            generateBtn.disabled = true;
+
+            fetch('/api/violin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: currentFilename,
+                    x_col: xCol || null,
+                    y_col: yCol,
+                    title: title
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('show');
+                generateBtn.disabled = false;
+                if (data.success) {
+                    chartImage.src = 'data:image/png;base64,' + data.image;
+
+                    statsGrid.innerHTML = '';
+                    if (data.statistics) {
+                        Object.keys(data.statistics).forEach(group => {
+                            const stats = data.statistics[group];
+                            const card = document.createElement('div');
+                            card.className = 'stat-card';
+                            card.innerHTML = `
+                                <h4>${group}</h4>
+                                <div class="stat-values">
+                                    <div><span>计数</span><span>${stats.count}</span></div>
+                                    <div><span>均值</span><span>${stats.mean.toFixed(2)}</span></div>
+                                    <div><span>标准差</span><span>${stats.std.toFixed(2)}</span></div>
+                                    <div><span>最小值</span><span>${stats.min.toFixed(2)}</span></div>
+                                    <div><span>中位数</span><span>${stats.median.toFixed(2)}</span></div>
+                                    <div><span>最大值</span><span>${stats.max.toFixed(2)}</span></div>
+                                </div>
+                            `;
+                            statsGrid.appendChild(card);
+                        });
+                    }
+
+                    resultSection.classList.add('show');
+                } else {
+                    showError(data.error || '生成图表失败');
+                }
+            })
+            .catch(err => {
+                loading.classList.remove('show');
+                generateBtn.disabled = false;
+                showError('生成失败：' + err.message);
+            });
+        }
+    </script>
+</body>
+</html>
