@@ -411,6 +411,23 @@
 
             <div class="controls" id="controls">
                 <h3>图表配置</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>📈 图表类型</label>
+                        <div style="display: flex; gap: 10px; margin-top: 6px;">
+                            <label style="cursor: pointer; flex: 1;">
+                                <input type="radio" name="chartMode" value="single" checked onchange="toggleChartMode()">
+                                单指标
+                            </label>
+                            <label style="cursor: pointer; flex: 1;">
+                                <input type="radio" name="chartMode" value="multi" onchange="toggleChartMode()">
+                                多指标对比
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="xCol">X 轴（分组列，可选）</label>
@@ -418,15 +435,42 @@
                             <option value="">（不分组，单值分布）</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="yColGroup">
                         <label for="yCol">Y 轴（数值列）</label>
                         <select id="yCol"></select>
+                    </div>
+                    <div class="form-group" id="yColsGroup" style="display: none;">
+                        <label>Y 轴（选择多个数值列）</label>
+                        <div id="yColsCheckboxes" style="max-height: 120px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: white;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="hueCol">嵌套分组（Hue，可选）</label>
+                        <select id="hueCol">
+                            <option value="">（不使用嵌套分组）</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inner">内部显示</label>
+                        <select id="inner"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orient">图表方向</label>
+                        <select id="orient"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="palette">配色方案</label>
+                        <select id="palette"></select>
                     </div>
                     <div class="form-group">
                         <label for="title">图表标题</label>
                         <input type="text" id="title" value="小提琴图">
                     </div>
                 </div>
+
                 <button class="btn btn-primary" id="generateBtn" onclick="generateViolin()">生成小提琴图</button>
             </div>
 
@@ -464,12 +508,30 @@
         const previewTable = document.getElementById('previewTable');
         const xColSelect = document.getElementById('xCol');
         const yColSelect = document.getElementById('yCol');
+        const hueColSelect = document.getElementById('hueCol');
+        const innerSelect = document.getElementById('inner');
+        const orientSelect = document.getElementById('orient');
+        const paletteSelect = document.getElementById('palette');
+        const yColsCheckboxes = document.getElementById('yColsCheckboxes');
+        const yColGroup = document.getElementById('yColGroup');
+        const yColsGroup = document.getElementById('yColsGroup');
         const loading = document.getElementById('loading');
         const resultSection = document.getElementById('resultSection');
         const chartImage = document.getElementById('chartImage');
         const statsGrid = document.getElementById('statsGrid');
         const bwInfo = document.getElementById('bwInfo');
         const generateBtn = document.getElementById('generateBtn');
+
+        function toggleChartMode() {
+            const mode = document.querySelector('input[name="chartMode"]:checked').value;
+            if (mode === 'single') {
+                yColGroup.style.display = 'block';
+                yColsGroup.style.display = 'none';
+            } else {
+                yColGroup.style.display = 'none';
+                yColsGroup.style.display = 'block';
+            }
+        }
 
         function showError(msg) {
             errorMessage.textContent = msg;
@@ -535,17 +597,53 @@
 
                     xColSelect.innerHTML = '<option value="">（不分组，单值分布）</option>';
                     yColSelect.innerHTML = '';
+                    hueColSelect.innerHTML = '<option value="">（不使用嵌套分组）</option>';
+                    innerSelect.innerHTML = '';
+                    orientSelect.innerHTML = '';
+                    paletteSelect.innerHTML = '';
+                    yColsCheckboxes.innerHTML = '';
 
                     data.columns.forEach(col => {
                         xColSelect.innerHTML += `<option value="${col}">${col}</option>`;
                     });
 
+                    if (data.categorical_columns) {
+                        data.categorical_columns.forEach(col => {
+                            hueColSelect.innerHTML += `<option value="${col}">${col}</option>`;
+                        });
+                    }
+
                     data.numeric_columns.forEach(col => {
                         yColSelect.innerHTML += `<option value="${col}">${col}</option>`;
+                        yColsCheckboxes.innerHTML += `
+                            <label style="display: block; cursor: pointer; padding: 4px 0;">
+                                <input type="checkbox" value="${col}" class="y-col-checkbox"> ${col}
+                            </label>
+                        `;
                     });
+
+                    if (data.inner_options) {
+                        data.inner_options.forEach(opt => {
+                            innerSelect.innerHTML += `<option value="${opt.value}">${opt.name}</option>`;
+                        });
+                    }
+
+                    if (data.orient_options) {
+                        data.orient_options.forEach(opt => {
+                            orientSelect.innerHTML += `<option value="${opt.value}">${opt.name}</option>`;
+                        });
+                    }
+
+                    if (data.palettes) {
+                        data.palettes.forEach(pal => {
+                            paletteSelect.innerHTML += `<option value="${pal.value}">${pal.name}</option>`;
+                        });
+                    }
 
                     if (data.numeric_columns.length > 0) {
                         yColSelect.value = data.numeric_columns[0];
+                        const firstCheckbox = yColsCheckboxes.querySelector('.y-col-checkbox');
+                        if (firstCheckbox) firstCheckbox.checked = true;
                     }
 
                     controls.classList.add('show');
@@ -577,28 +675,50 @@
         function generateViolin() {
             if (!currentFilename) return;
 
+            const mode = document.querySelector('input[name="chartMode"]:checked').value;
             const xCol = xColSelect.value;
             const yCol = yColSelect.value;
+            const hueCol = hueColSelect.value;
+            const inner = innerSelect.value;
+            const orient = orientSelect.value;
+            const palette = paletteSelect.value;
             const title = document.getElementById('title').value;
 
-            if (!yCol) {
-                showError('请选择 Y 轴数值列');
-                return;
+            let yCols = null;
+            if (mode === 'multi') {
+                const checkedBoxes = yColsCheckboxes.querySelectorAll('.y-col-checkbox:checked');
+                yCols = Array.from(checkedBoxes).map(cb => cb.value);
+                if (yCols.length === 0) {
+                    showError('请至少选择一个数值列');
+                    return;
+                }
+            } else {
+                if (!yCol) {
+                    showError('请选择 Y 轴数值列');
+                    return;
+                }
             }
 
             loading.classList.add('show');
             resultSection.classList.remove('show');
             generateBtn.disabled = true;
 
+            const requestBody = {
+                filename: currentFilename,
+                x_col: xCol || null,
+                y_col: mode === 'single' ? yCol : null,
+                y_cols: mode === 'multi' ? yCols : null,
+                hue_col: hueCol || null,
+                inner: inner,
+                orient: orient,
+                palette: palette,
+                title: title
+            };
+
             fetch('/api/violin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filename: currentFilename,
-                    x_col: xCol || null,
-                    y_col: yCol,
-                    title: title
-                })
+                body: JSON.stringify(requestBody)
             })
             .then(response => response.json())
             .then(data => {
